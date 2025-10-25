@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" monitorInterval="60">
+    <!-- Переменные окружения -->
+    <Properties>
+        <!-- Можно брать имя приложения из Spring Boot -->
+        <Property name="appName">${spring:application.name:-demo-app}</Property>
+        <Property name="logLevel">info</Property>
+        <Property name="kafkaBrokers">localhost:9092</Property>
+        <Property name="kafkaTopic">app-logs</Property>
+    </Properties>
+
+    <Appenders>
+        <!-- Консоль -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5p %c{1} - %m%n"/>
+        </Console>
+
+        <!-- Kafka Appender -->
+        <Kafka name="KafkaAppender" topic="${kafkaTopic}">
+            <!-- Подключение к брокерам -->
+            <Property name="bootstrap.servers">${kafkaBrokers}</Property>
+            <Property name="acks">1</Property>
+            <Property name="compression.type">gzip</Property>
+            <Property name="retries">3</Property>
+
+            <!-- Формат логов -->
+            <JSONLayout complete="false" compact="true" eventEol="true"
+                        properties="true" stacktraceAsString="true"/>
+        </Kafka>
+
+        <!-- Асинхронный слой -->
+        <Async name="AsyncKafka" includeLocation="false">
+            <AppenderRef ref="KafkaAppender"/>
+        </Async>
+
+        <!-- Файл (резервный вариант, если Kafka недоступна) -->
+        <RollingFile name="File" fileName="logs/${appName}.log"
+                     filePattern="logs/${appName}-%d{yyyy-MM-dd}.log.gz">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5p %c{1} - %m%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <!-- Пример: свои пакеты -->
+        <Logger name="dev.sinayko" level="${logLevel}" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="AsyncKafka"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+
+        <!-- Root logger -->
+        <Root level="${logLevel}">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="AsyncKafka"/>
+            <AppenderRef ref="File"/>
+        </Root>
+    </Loggers>
+</Configuration>
